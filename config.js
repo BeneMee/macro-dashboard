@@ -263,7 +263,7 @@ const CHART_METRICS = [
   { id: 'gdp_growth',     label: 'Real GDP Growth (%)',      src: 'wb', wbCode: 'NY.GDP.MKTP.KD.ZG', unit: '%'  },
   { id: 'gdp_per_capita', label: 'GDP per Capita (USD)',     src: 'wb', wbCode: 'NY.GDP.PCAP.CD',    unit: 'USD'},
   { id: 'current_account',label: 'Current Account (% GDP)', src: 'wb', wbCode: 'BN.CAB.XOKA.GD.ZS', unit: '%'  },
-  { id: 'govt_debt_wb',   label: 'Govt. Debt, WB (% GDP)',  src: 'wb', wbCode: 'GC.DOD.TOTL.GD.ZS', unit: '%'  },
+  { id: 'govt_debt_wb',   label: 'Govt. Debt — General (% GDP)', src: 'imf', imfCode: 'GGXWDG_NGDP', unit: '%' },
 
   // FRED monthly charts (higher frequency, more timely)
   { id: 'inflation_chart',  label: 'Headline CPI Inflation (%)',  src: 'fred', fredKey: 'cpi_yoy',      unit: '%', category: 'inflation' },

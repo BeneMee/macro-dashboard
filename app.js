@@ -97,12 +97,16 @@ async function loadManualData() {
 }
 
 // ─── WORLD BANK API ───────────────────────────────
-async function fetchWB(iso3, indicator, years = 25) {
+// Always fetches YEARS_WB years so metric cards and charts share the same cache entry.
+// Cache key intentionally excludes `years` — first call wins, always 25 years.
+const YEARS_WB = 25;
+
+async function fetchWB(iso3, indicator) {
   const cacheKey = `wb_${iso3}_${indicator}`;
   const cached = Cache.get(cacheKey);
   if (cached) return cached;
 
-  const url = `${CONFIG.WORLD_BANK_BASE}/country/${iso3}/indicator/${indicator}?format=json&mrv=${years}&per_page=${years}`;
+  const url = `${CONFIG.WORLD_BANK_BASE}/country/${iso3}/indicator/${indicator}?format=json&mrv=${YEARS_WB}&per_page=${YEARS_WB}`;
   try {
     const json = await fetchWithTimeout(url);
     if (!Array.isArray(json) || json.length < 2 || !json[1]) return null;
@@ -119,7 +123,8 @@ async function fetchWB(iso3, indicator, years = 25) {
 }
 
 async function fetchWBLatest(iso3, indicator) {
-  const series = await fetchWB(iso3, indicator, 5);
+  // Reuses the same 25-year cache that charts use — no separate 5-year fetch
+  const series = await fetchWB(iso3, indicator);
   if (!series || !series.length) return null;
   const latest = series[series.length - 1];
   return { value: latest.value, date: String(latest.year), source: 'wb' };
@@ -399,6 +404,30 @@ async function fetchCoreInflation(country) {
   return null;
 }
 
+// ─── GOVERNMENT DEBT (special fetcher) ───────────
+// Priority: FRED OECD series → IMF DataMapper → WB central-govt (last resort)
+// IMF GGXWDG_NGDP = General Government Gross Debt (% GDP) — all levels of govt.
+// WB GC.DOD.TOTL.GD.ZS = Central government only → understates debt for federal states.
+async function fetchGovtDebt(country) {
+  const iso3 = country.wb;
+  const fs = FRED_COUNTRY_SERIES[iso3] || {};
+
+  // 1. FRED OECD series (GGGDTP01{CC}A156N — general govt gross debt)
+  if (fs.govt_debt) {
+    const r = await fetchFREDLatest(fs.govt_debt);
+    if (r) return r;
+  }
+
+  // 2. IMF DataMapper GGXWDG_NGDP — general government gross debt, all countries
+  const imf = await fetchIMFLatest('GGXWDG_NGDP', iso3);
+  if (imf) return imf;
+
+  // 3. WB fallback (central govt only — flagged with source so user can see it)
+  const wb = await fetchWBLatest(iso3, 'GC.DOD.TOTL.GD.ZS');
+  if (wb) return { ...wb, source: 'wb_central' }; // distinct label for central-govt-only
+  return null;
+}
+
 // ─── FETCH ALL METRICS FOR A COUNTRY ─────────────
 // FRED is primary for monetary, inflation, unemployment, govt debt.
 // World Bank is primary for GDP (USD), trade, demographics, and all
@@ -431,10 +460,13 @@ async function fetchCountryMetrics(country) {
     fredOrWB(fs.youth_unemp,  'SL.UEM.1524.ZS').then(r => ['youth_unemployment', r]),
     fredOrWB(fs.labor_part,   'SL.TLF.ACTI.ZS').then(r => ['labor_force_part',   r]),
 
-    // ── Fiscal (FRED annual → WB annual fallback)
-    fredOrWB(fs.govt_debt, 'GC.DOD.TOTL.GD.ZS').then(r => ['govt_debt',        r]),
-    fetchWBLatest(iso3, 'GC.NLD.TOTL.GD.ZS').then(r    => ['primary_balance',  r]),
-    fetchWBLatest(iso3, 'GC.XPN.TOTL.GD.ZS').then(r    => ['govt_expenditure', r]),
+    // ── Fiscal
+    // Govt debt: IMF GGXWDG_NGDP = general government gross debt (all levels, % GDP)
+    // This is the internationally comparable "Maastricht" measure.
+    // WB GC.DOD.TOTL.GD.ZS = central government only → too low for federal states (DE, US, CA)
+    fetchGovtDebt(country).then(r               => ['govt_debt',        r]),
+    fetchWBLatest(iso3, 'GC.NLD.TOTL.GD.ZS').then(r => ['primary_balance',  r]),
+    fetchWBLatest(iso3, 'GC.XPN.TOTL.GD.ZS').then(r => ['govt_expenditure', r]),
 
     // ── External (World Bank — USD trade, % GDP current account; all countries)
     fetchWBLatest(iso3, 'BN.CAB.XOKA.GD.ZS').then(r => ['current_account', r]),
@@ -463,11 +495,11 @@ async function fetchCountryMetrics(country) {
 
 // ─── RENDER METRIC CARDS ──────────────────────────
 function sourceClass(src) {
-  const map = { wb: 'src-wb', fred: 'src-fred', ecb: 'src-ecb', oecd: 'src-oecd', manual: 'src-manual', imf: 'src-imf', eurostat: 'src-eurostat' };
+  const map = { wb: 'src-wb', wb_central: 'src-manual', fred: 'src-fred', ecb: 'src-ecb', oecd: 'src-oecd', manual: 'src-manual', imf: 'src-imf', eurostat: 'src-eurostat' };
   return map[src] || 'src-unavailable';
 }
 function sourceLabel(src) {
-  const map = { wb: 'WB', fred: 'FRED', ecb: 'ECB', oecd: 'OECD', manual: 'MANUAL ⚠', imf: 'IMF', eurostat: 'EUROSTAT' };
+  const map = { wb: 'WB', wb_central: 'WB CENTRAL ⚠', fred: 'FRED', ecb: 'ECB', oecd: 'OECD', manual: 'MANUAL ⚠', imf: 'IMF', eurostat: 'EUROSTAT' };
   return map[src] || 'N/A';
 }
 
@@ -719,7 +751,16 @@ async function renderChart(chartDef, countries, range) {
   const canvasId = `chart-${chartDef.id}`;
   const seriesMap = {};
 
-  if (chartDef.src === 'fred') {
+  if (chartDef.src === 'imf') {
+    // IMF DataMapper annual time series
+    const fetches = countries.map(async (country) => {
+      const data = await fetchIMFSeries(chartDef.imfCode, country.wb);
+      if (data && data.length) {
+        seriesMap[country.wb] = filterByRange(data, range);
+      }
+    });
+    await Promise.all(fetches);
+  } else if (chartDef.src === 'fred') {
     // FRED monthly charts — convert date strings to pseudo-year decimals for x-axis
     const fetches = countries.map(async (country) => {
       const fredSeries = FRED_COUNTRY_SERIES[country.wb];
@@ -739,7 +780,7 @@ async function renderChart(chartDef, countries, range) {
   } else {
     // World Bank annual charts
     const fetches = countries.map(async (country) => {
-      const series = await fetchWB(country.wb, chartDef.wbCode, 25);
+      const series = await fetchWB(country.wb, chartDef.wbCode);
       if (series && series.length) {
         seriesMap[country.wb] = filterByRange(series, range);
       }
