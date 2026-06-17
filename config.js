@@ -5,12 +5,17 @@
    ═══════════════════════════════════════════════ */
 
 const CONFIG = {
-  FRED_API_KEY: 'abcdefghijklmnopqrstuvwxyz123456', // ← Replace with your FRED API key
+  FRED_API_KEY: 'abcdefghijklmnopqrstuvwxyz123456', // ← Replace with your FRED API key from https://fred.stlouisfed.org/docs/api/api_key.html
   CACHE_TTL_MS: 60 * 60 * 1000, // 1 hour
   API_TIMEOUT_MS: 12000,
   WORLD_BANK_BASE: 'https://api.worldbank.org/v2',
   FRED_BASE: 'https://api.stlouisfed.org/fred',
   ECB_BASE: 'https://data-api.ecb.europa.eu/service',
+  // IMF DataMapper API — free, no key required
+  // Indicators: FPOLM_PA (policy rate), NGDP_RPCH (GDP growth), PCPIPCH (CPI), LUR (unemployment)
+  IMF_BASE: 'https://www.imf.org/external/datamapper/api/v1',
+  // Eurostat SDMX API — free, no key required — EU countries only
+  EUROSTAT_BASE: 'https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data',
   MANUAL_DATA_URL: './manual-data.json',
 };
 
@@ -63,6 +68,27 @@ const ECB_SERIES = {
   fr_10y_yield:   'FM.B.FR.EUR.FR.BB.U2_10Y.YLD',
   it_10y_yield:   'FM.B.IT.EUR.FR.BB.U2_10Y.YLD',
 };
+
+// IMF DataMapper indicator codes
+// Full list: https://www.imf.org/external/datamapper/api/v1/indicators
+const IMF_INDICATORS = {
+  policy_rate:    'FPOLM_PA',   // Monetary Policy Rate, % per annum — covers all 12 countries
+  gdp_growth:     'NGDP_RPCH',  // Real GDP growth (% change) — more recent than WB
+  cpi_inflation:  'PCPIPCH',    // CPI inflation (% change)
+  unemployment:   'LUR',        // Unemployment rate
+  govt_debt:      'GGXWDG_NGDP',// General govt gross debt (% of GDP)
+  current_acct:   'BCA_NGDPD',  // Current account (% of GDP)
+};
+
+// IMF country codes (same as ISO 3-letter, matching our wb field)
+// USA, DEU, JPN, FRA, GBR, ITA, CAN, CHN, KOR, AUS, BRA, IND — all supported
+
+// Eurostat geo codes for HICP core inflation (TOT_X_NRG_FOOD = excl. energy & food)
+const EUROSTAT_COUNTRIES = {
+  DEU: 'DE', FRA: 'FR', ITA: 'IT',  // Eurozone countries in our list
+  // GBR was removed from EU, but Eurostat still publishes UK data as EEA
+};
+
 
 const METRIC_DEFINITIONS = [
   // Growth & Output

@@ -201,19 +201,120 @@ async function fetchECBLatest(flowRef, key) {
   return { value: last.value, date: last.date, source: 'ecb' };
 }
 
+// ─── IMF DATAMAPPER API ───────────────────────────
+// Free, no API key. Covers policy rates + macro indicators for all 12 countries.
+// Indicator list: https://www.imf.org/external/datamapper/api/v1/indicators
+async function fetchIMFSeries(indicator, iso3) {
+  const cacheKey = `imf_${indicator}_${iso3}`;
+  const cached = Cache.get(cacheKey);
+  if (cached) return cached;
+
+  const url = `${CONFIG.IMF_BASE}/${indicator}/${iso3}`;
+  try {
+    const json = await fetchWithTimeout(url);
+    const countryData = json?.values?.[indicator]?.[iso3];
+    if (!countryData) return null;
+    const data = Object.entries(countryData)
+      .filter(([, v]) => v !== null && v !== undefined)
+      .map(([year, value]) => ({ year: parseInt(year), value }))
+      .sort((a, b) => a.year - b.year);
+    Cache.set(cacheKey, data);
+    return data;
+  } catch (e) {
+    console.warn(`IMF fetch failed (${indicator}/${iso3}):`, e.message);
+    return null;
+  }
+}
+
+async function fetchIMFLatest(indicator, iso3) {
+  const series = await fetchIMFSeries(indicator, iso3);
+  if (!series || !series.length) return null;
+  const latest = series[series.length - 1];
+  return { value: latest.value, date: String(latest.year), source: 'imf' };
+}
+
+// ─── EUROSTAT API ─────────────────────────────────
+// Free, no API key. EU countries only. HICP = EU-harmonized CPI.
+// coicop=TOT_X_NRG_FOOD → "All items excluding energy and food" = core inflation
+async function fetchEurostatCoreInflation(iso3) {
+  const geoCode = EUROSTAT_COUNTRIES[iso3];
+  if (!geoCode) return null;
+
+  const cacheKey = `eurostat_core_${iso3}`;
+  const cached = Cache.get(cacheKey);
+  if (cached) return cached;
+
+  // Monthly HICP rate of change, all items excl. energy & food
+  const url = `${CONFIG.EUROSTAT_BASE}/PRC_HICP_MANR?format=JSON&sinceTimePeriod=2022-01&geo=${geoCode}&coicop=TOT_X_NRG_FOOD&unit=RCH_A_AVG`;
+  try {
+    const json = await fetchWithTimeout(url);
+    // SDMX-JSON structure: datasets[0].value[] indexed by time
+    const dataset = json?.datasets?.[0] || json?.dataset?.[0];
+    if (!dataset) {
+      // Try alternative SDMX envelope structure
+      const ds = json?.value ? json : null;
+      if (!ds) return null;
+    }
+    const values = json?.datasets?.[0]?.value ?? json?.value ?? null;
+    const timeIds = json?.dimension?.time?.category?.index
+                 ?? json?.structure?.dimensions?.observation?.[0]?.values;
+    if (!values || !timeIds) return null;
+
+    // Find the latest non-null value
+    let lastDate = null, lastVal = null;
+    if (Array.isArray(timeIds)) {
+      // SDMX observation format
+      for (let i = timeIds.length - 1; i >= 0; i--) {
+        if (values[i] !== null && values[i] !== undefined) {
+          lastDate = timeIds[i]?.id || timeIds[i];
+          lastVal = values[i];
+          break;
+        }
+      }
+    } else {
+      // Index-based dimension
+      const entries = Object.entries(timeIds).sort(([, a], [, b]) => b - a);
+      for (const [period, idx] of entries) {
+        if (values[idx] !== null && values[idx] !== undefined) {
+          lastDate = period;
+          lastVal = values[idx];
+          break;
+        }
+      }
+    }
+    if (lastVal === null) return null;
+    const result = { value: Number(lastVal), date: lastDate, source: 'eurostat' };
+    Cache.set(cacheKey, result);
+    return result;
+  } catch (e) {
+    console.warn(`Eurostat core inflation failed (${iso3}):`, e.message);
+    return null;
+  }
+}
+
 // ─── METRIC FETCHERS ──────────────────────────────
+// Priority chains: authoritative real-time source first, then IMF, then manual fallback.
+
 async function fetchPolicyRate(country) {
   const iso3 = country.wb;
-  // USA → FRED
+
+  // USA: FRED (monthly, most accurate)
   if (iso3 === 'USA') {
-    return await fetchFREDLatest(FRED_SERIES.fed_funds_rate);
+    const r = await fetchFREDLatest(FRED_SERIES.fed_funds_rate);
+    if (r) return r;
   }
-  // Eurozone → ECB
+
+  // Eurozone (DE, FR, IT): ECB → IMF → manual
   if (['DEU','FRA','ITA'].includes(iso3)) {
-    const r = await fetchECBLatest('FM,1.0,', 'B.U2.EUR.4F.KR.MRR_FR.LEV');
-    return r;
+    const ecb = await fetchECBLatest('FM,1.0,', 'B.U2.EUR.4F.KR.MRR_FR.LEV');
+    if (ecb) return ecb;
   }
-  // Others → manual data
+
+  // All countries: IMF DataMapper (FPOLM_PA) — covers JP, GB, CA, CN, KR, AU, BR, IN
+  const imf = await fetchIMFLatest(IMF_INDICATORS.policy_rate, iso3);
+  if (imf) return imf;
+
+  // Final fallback: manual-data.json (updated daily by GitHub Actions)
   if (state.manualData?.policy_rates?.[iso3]) {
     const m = state.manualData.policy_rates[iso3];
     return { value: m.value, date: m.date, source: 'manual' };
@@ -223,27 +324,25 @@ async function fetchPolicyRate(country) {
 
 async function fetchBondYield(country) {
   const iso3 = country.wb;
+
   // USA → FRED
   if (iso3 === 'USA') {
     const r = await fetchFREDLatest(FRED_SERIES.us_10y_yield);
-    return r;
+    if (r) return r;
   }
-  // Eurozone via ECB
-  const ecbMap = {
-    DEU: 'FM,1.0,',
-    FRA: 'FM,1.0,',
-    ITA: 'FM,1.0,',
-  };
-  const ecbKeyMap = {
+
+  // Eurozone: ECB SDMX bond yield series
+  const ecbBondKeys = {
     DEU: 'B.DE.EUR.FR.BB.U2_10Y.YLD',
     FRA: 'B.FR.EUR.FR.BB.U2_10Y.YLD',
     ITA: 'B.IT.EUR.FR.BB.U2_10Y.YLD',
   };
-  if (ecbMap[iso3]) {
-    const r = await fetchECBLatest(ecbMap[iso3], ecbKeyMap[iso3]);
+  if (ecbBondKeys[iso3]) {
+    const r = await fetchECBLatest('FM,1.0,', ecbBondKeys[iso3]);
     if (r) return r;
   }
-  // Fallback → manual
+
+  // No free API for 10Y yields of JP, GB, CA, CN, KR, AU, BR, IN → manual only
   if (state.manualData?.bond_yields_10y?.[iso3]) {
     const m = state.manualData.bond_yields_10y[iso3];
     return { value: m.value, date: m.date, source: 'manual' };
@@ -253,11 +352,22 @@ async function fetchBondYield(country) {
 
 async function fetchCoreInflation(country) {
   const iso3 = country.wb;
-  // USA → FRED
+
+  // USA: FRED sticky-price core CPI YoY
   if (iso3 === 'USA') {
-    return await fetchFREDLatest(FRED_SERIES.us_core_cpi_yoy);
+    const r = await fetchFREDLatest(FRED_SERIES.us_core_cpi_yoy);
+    if (r) return r;
   }
-  // Manual for others
+
+  // EU countries: Eurostat HICP excl. energy & food
+  if (EUROSTAT_COUNTRIES[iso3]) {
+    const r = await fetchEurostatCoreInflation(iso3);
+    if (r) return r;
+  }
+
+  // All others: IMF (if they publish a core figure — coverage varies)
+  // IMF PCPIPCH is headline CPI, not core — skip for core metric
+  // Fall through to manual
   if (state.manualData?.core_inflation?.[iso3]) {
     const m = state.manualData.core_inflation[iso3];
     return { value: m.value, date: m.date, source: 'manual' };
@@ -292,11 +402,11 @@ async function fetchCountryMetrics(country) {
 
 // ─── RENDER METRIC CARDS ──────────────────────────
 function sourceClass(src) {
-  const map = { wb: 'src-wb', fred: 'src-fred', ecb: 'src-ecb', oecd: 'src-oecd', manual: 'src-manual' };
+  const map = { wb: 'src-wb', fred: 'src-fred', ecb: 'src-ecb', oecd: 'src-oecd', manual: 'src-manual', imf: 'src-imf', eurostat: 'src-eurostat' };
   return map[src] || 'src-unavailable';
 }
 function sourceLabel(src) {
-  const map = { wb: 'WB', fred: 'FRED', ecb: 'ECB', oecd: 'OECD', manual: 'MANUAL ⚠' };
+  const map = { wb: 'WB', fred: 'FRED', ecb: 'ECB', oecd: 'OECD', manual: 'MANUAL ⚠', imf: 'IMF', eurostat: 'EUROSTAT' };
   return map[src] || 'N/A';
 }
 

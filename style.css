@@ -400,6 +400,8 @@ input { font-family: inherit; }
 .src-ecb { background: rgba(0,255,136,0.12); color: #00cc6a; }
 .src-oecd { background: rgba(180,0,255,0.15); color: #cc66ff; }
 .src-manual { background: rgba(255,184,0,0.15); color: var(--warn); }
+.src-imf { background: rgba(0,200,180,0.15); color: #00c8b4; }
+.src-eurostat { background: rgba(100,160,255,0.15); color: #6da0ff; }
 .src-unavailable { background: rgba(255,0,0,0.1); color: var(--danger); }
 
 .card-unavailable .card-value {
