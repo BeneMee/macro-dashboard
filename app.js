@@ -400,25 +400,62 @@ async function fetchCoreInflation(country) {
 }
 
 // ─── FETCH ALL METRICS FOR A COUNTRY ─────────────
+// FRED is primary for monetary, inflation, unemployment, govt debt.
+// World Bank is primary for GDP (USD), trade, demographics, and all
+// non-OECD country data where FRED series don't exist.
 async function fetchCountryMetrics(country) {
   const iso3 = country.wb;
+  const fs = FRED_COUNTRY_SERIES[iso3] || {};
 
-  const wbFetches = METRIC_DEFINITIONS
-    .filter(m => m.source === 'wb' && m.wbCode)
-    .map(m => fetchWBLatest(iso3, m.wbCode).then(r => [m.id, r]));
+  // Try FRED first; if null seriesId or no data returned, fall back to WB.
+  async function fredOrWB(fredSeriesId, wbCode) {
+    if (fredSeriesId) {
+      const r = await fetchFREDLatest(fredSeriesId);
+      if (r) return r;
+    }
+    return wbCode ? fetchWBLatest(iso3, wbCode) : null;
+  }
 
-  const specialFetches = [
-    fetchPolicyRate(country).then(r => ['policy_rate', r]),
-    fetchBondYield(country).then(r => ['bond_yield_10y', r]),
-    fetchCoreInflation(country).then(r => ['core_inflation', r]),
+  const fetches = [
+    // ── Growth (World Bank — standardised USD, all 12 countries)
+    fetchWBLatest(iso3, 'NY.GDP.MKTP.CD').then(r  => ['gdp_nominal',    r]),
+    fetchWBLatest(iso3, 'NY.GDP.MKTP.KD.ZG').then(r=> ['gdp_growth',     r]),
+    fetchWBLatest(iso3, 'NY.GDP.PCAP.CD').then(r   => ['gdp_per_capita',  r]),
+
+    // ── Inflation (FRED monthly → WB annual fallback)
+    fredOrWB(fs.cpi_yoy,     'FP.CPI.TOTL.ZG').then(r => ['inflation_cpi', r]),
+    fetchCoreInflation(country).then(r                  => ['core_inflation', r]),
+
+    // ── Labor (FRED monthly → WB annual fallback)
+    fredOrWB(fs.unemployment, 'SL.UEM.TOTL.ZS').then(r => ['unemployment',       r]),
+    fredOrWB(fs.youth_unemp,  'SL.UEM.1524.ZS').then(r => ['youth_unemployment', r]),
+    fredOrWB(fs.labor_part,   'SL.TLF.ACTI.ZS').then(r => ['labor_force_part',   r]),
+
+    // ── Fiscal (FRED annual → WB annual fallback)
+    fredOrWB(fs.govt_debt, 'GC.DOD.TOTL.GD.ZS').then(r => ['govt_debt',        r]),
+    fetchWBLatest(iso3, 'GC.NLD.TOTL.GD.ZS').then(r    => ['primary_balance',  r]),
+    fetchWBLatest(iso3, 'GC.XPN.TOTL.GD.ZS').then(r    => ['govt_expenditure', r]),
+
+    // ── External (World Bank — USD trade, % GDP current account; all countries)
+    fetchWBLatest(iso3, 'BN.CAB.XOKA.GD.ZS').then(r => ['current_account', r]),
+    fetchWBLatest(iso3, 'NE.RSB.GNFS.CD').then(r    => ['trade_balance',    r]),
+
+    // ── Monetary (FRED primary — policy rates, yields, core CPI)
+    fetchPolicyRate(country).then(r   => ['policy_rate',    r]),
+    fetchBondYield(country).then(r    => ['bond_yield_10y', r]),
+
+    // ── Demographic (World Bank)
+    fetchWBLatest(iso3, 'SP.POP.TOTL').then(r    => ['population',   r]),
+    fetchWBLatest(iso3, 'SP.POP.GROW').then(r    => ['pop_growth',   r]),
+    fetchWBLatest(iso3, 'SP.POP.DPND.OL').then(r => ['old_age_dep', r]),
   ];
 
-  const results = await Promise.allSettled([...wbFetches, ...specialFetches]);
+  const results = await Promise.allSettled(fetches);
   const data = {};
   results.forEach(r => {
     if (r.status === 'fulfilled' && r.value) {
       const [id, val] = r.value;
-      data[id] = val;
+      if (val) data[id] = val;
     }
   });
   return data;

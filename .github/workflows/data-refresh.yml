@@ -17,167 +17,154 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update manual-data.json via FRED + ECB APIs
+      - name: Update manual-data.json via FRED
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: |
           python3 << 'PYEOF'
-          import json, urllib.request, urllib.error, datetime, sys, os
+          import json, urllib.request, datetime, sys, os
 
           FRED_KEY = os.environ.get('FRED_API_KEY', '')
           if not FRED_KEY:
-              print("ERROR: FRED_API_KEY secret not set in repository settings.", file=sys.stderr)
+              print("ERROR: FRED_API_KEY secret not set.", file=sys.stderr)
               sys.exit(1)
+
           today = datetime.date.today().isoformat()
 
-          def fetch(url, timeout=15):
-              try:
-                  req = urllib.request.Request(url, headers={'User-Agent': 'MacroMonitor/1.0', 'Accept': 'application/json'})
-                  with urllib.request.urlopen(req, timeout=timeout) as r:
-                      return json.loads(r.read())
-              except Exception as e:
-                  print(f"  WARN: {url[:90]}... → {e}", file=sys.stderr)
-                  return None
-
-          def fred_latest(series_id):
-              url = f"https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&api_key={FRED_KEY}&file_type=json&sort_order=desc&limit=3"
-              data = fetch(url)
-              if not data or not data.get('observations'):
-                  return None, None
-              for obs in data['observations']:
-                  if obs.get('value') and obs['value'] != '.':
-                      return float(obs['value']), obs['date'][:7]
-              return None, None
+          def fred_latest(series_id, retries=2):
+              url = (f"https://api.stlouisfed.org/fred/series/observations"
+                     f"?series_id={series_id}&api_key={FRED_KEY}"
+                     f"&file_type=json&sort_order=desc&limit=3")
+              for attempt in range(retries + 1):
+                  try:
+                      req = urllib.request.Request(url, headers={'User-Agent': 'MacroMonitor/1.0'})
+                      with urllib.request.urlopen(req, timeout=15) as r:
+                          data = json.loads(r.read())
+                      for obs in data.get('observations', []):
+                          if obs.get('value') and obs['value'] not in ('.', ''):
+                              return round(float(obs['value']), 4), obs['date'][:7]
+                      return None, None
+                  except Exception as e:
+                      if attempt == retries:
+                          print(f"  WARN {series_id}: {e}", file=sys.stderr)
+                          return None, None
 
           with open('manual-data.json', 'r') as f:
               data = json.load(f)
 
           changed = False
 
-          # ── Policy Rates via FRED ─────────────────────────────────────────
-          print("Fetching policy rates via FRED...")
+          def update(section, country, val, date, source):
+              global changed
+              if val is None:
+                  return
+              old = data.get(section, {}).get(country, {})
+              if old.get('value') != val or old.get('date') != date:
+                  data.setdefault(section, {})[country] = {'value': val, 'date': date, 'source': source}
+                  changed = True
+                  print(f"  {country} {section} → {val} ({date})")
 
-          fred_policy = {
-              'USA': 'FEDFUNDS',
-              'DEU': 'ECBMRRFR',   # ECB Main Refinancing Rate
-              'FRA': 'ECBMRRFR',
-              'ITA': 'ECBMRRFR',
-              'JPN': 'IRSTCB01JPM156N',
-              'GBR': 'IRSTCB01GBM156N',
-              'CAN': 'IRSTCB01CAM156N',
-              'CHN': 'IRSTCB01CNM156N',
-              'KOR': 'IRSTCB01KRM156N',
-              'AUS': 'IRSTCB01AUM156N',
-              'BRA': 'IRSTCB01BRM156N',
-              'IND': 'IRSTCB01INM156N',
+          # ── Policy Rates ──────────────────────────────
+          print("Policy rates...")
+          POLICY = {
+              'USA': ('FEDFUNDS',         'FRED – Federal Reserve'),
+              'DEU': ('ECBMRRFR',         'FRED – ECB Main Refinancing Rate'),
+              'FRA': ('ECBMRRFR',         'FRED – ECB Main Refinancing Rate'),
+              'ITA': ('ECBMRRFR',         'FRED – ECB Main Refinancing Rate'),
+              'JPN': ('IRSTCB01JPM156N',  'FRED – OECD / Bank of Japan'),
+              'GBR': ('IRSTCB01GBM156N',  'FRED – OECD / Bank of England'),
+              'CAN': ('IRSTCB01CAM156N',  'FRED – OECD / Bank of Canada'),
+              'CHN': ('IRSTCB01CNM156N',  'FRED – OECD / PBoC'),
+              'KOR': ('IRSTCB01KRM156N',  'FRED – OECD / Bank of Korea'),
+              'AUS': ('IRSTCB01AUM156N',  'FRED – OECD / RBA'),
+              'BRA': ('IRSTCB01BRM156N',  'FRED – OECD / BCB'),
+              'IND': ('IRSTCB01INM156N',  'FRED – OECD / RBI'),
           }
+          for c, (sid, src) in POLICY.items():
+              v, d = fred_latest(sid)
+              update('policy_rates', c, v, d, src)
 
-          source_names = {
-              'USA': 'Federal Reserve (FRED)', 'DEU': 'ECB via FRED', 'FRA': 'ECB via FRED',
-              'ITA': 'ECB via FRED', 'JPN': 'Bank of Japan via FRED/OECD',
-              'GBR': 'Bank of England via FRED/OECD', 'CAN': 'Bank of Canada via FRED/OECD',
-              'CHN': "People's Bank of China via FRED/OECD", 'KOR': 'Bank of Korea via FRED/OECD',
-              'AUS': 'RBA via FRED/OECD', 'BRA': 'BCB via FRED/OECD', 'IND': 'RBI via FRED/OECD',
+          # ── 10Y Bond Yields ───────────────────────────
+          print("10Y bond yields...")
+          YIELDS = {
+              'USA': ('DGS10',           'FRED – US Treasury'),
+              'DEU': ('IRLTLT01DEM156N', 'FRED – OECD MEI'),
+              'JPN': ('IRLTLT01JPM156N', 'FRED – OECD MEI'),
+              'FRA': ('IRLTLT01FRM156N', 'FRED – OECD MEI'),
+              'GBR': ('IRLTLT01GBM156N', 'FRED – OECD MEI'),
+              'ITA': ('IRLTLT01ITM156N', 'FRED – OECD MEI'),
+              'CAN': ('IRLTLT01CAM156N', 'FRED – OECD MEI'),
+              'KOR': ('IRLTLT01KRM156N', 'FRED – OECD MEI'),
+              'AUS': ('IRLTLT01AUM156N', 'FRED – OECD MEI'),
+              'BRA': ('IRLTLT01BRM156N', 'FRED – OECD MEI'),
+              'IND': ('IRLTLT01INM156N', 'FRED – OECD MEI'),
+              # CHN: no FRED series → keep manual
           }
+          for c, (sid, src) in YIELDS.items():
+              v, d = fred_latest(sid)
+              update('bond_yields_10y', c, v, d, src)
 
-          for country, series_id in fred_policy.items():
-              val, date = fred_latest(series_id)
-              if val is not None:
-                  old = data.get('policy_rates', {}).get(country, {})
-                  if old.get('value') != round(val, 4) or old.get('date') != date:
-                      data.setdefault('policy_rates', {})[country] = {
-                          'value': round(val, 4), 'date': date, 'source': source_names.get(country, 'FRED')
-                      }
-                      changed = True
-                      print(f"  {country} policy rate → {val:.4f}% ({date})")
-              else:
-                  print(f"  {country}: no data for {series_id}", file=sys.stderr)
-
-          # ── 10Y Bond Yields via FRED ──────────────────────────────────────
-          print("Fetching 10Y bond yields via FRED...")
-
-          fred_yields = {
-              'USA': ('DGS10', 'FRED'),
-              'DEU': ('IRLTLT01DEM156N', 'FRED/OECD'),
-              'JPN': ('IRLTLT01JPM156N', 'FRED/OECD'),
-              'FRA': ('IRLTLT01FRM156N', 'FRED/OECD'),
-              'GBR': ('IRLTLT01GBM156N', 'FRED/OECD'),
-              'ITA': ('IRLTLT01ITM156N', 'FRED/OECD'),
-              'CAN': ('IRLTLT01CAM156N', 'FRED/OECD'),
-              'KOR': ('IRLTLT01KRM156N', 'FRED/OECD'),
-              'AUS': ('IRLTLT01AUM156N', 'FRED/OECD'),
-              'BRA': ('IRLTLT01BRM156N', 'FRED/OECD'),
-              'IND': ('IRLTLT01INM156N', 'FRED/OECD'),
-              # CHN: no FRED series → keep manual value
+          # ── Core CPI ──────────────────────────────────
+          print("Core CPI...")
+          CORE_CPI = {
+              'USA': ('CORESTICKM159SFRBATL', 'FRED – Atlanta Fed Sticky-Price Core CPI'),
+              'DEU': ('CPGRLE01DEM657N',      'FRED – OECD MEI'),
+              'JPN': ('CPGRLE01JPM657N',      'FRED – OECD MEI'),
+              'FRA': ('CPGRLE01FRM657N',      'FRED – OECD MEI'),
+              'GBR': ('CPGRLE01GBM657N',      'FRED – OECD MEI'),
+              'ITA': ('CPGRLE01ITM657N',      'FRED – OECD MEI'),
+              'CAN': ('CPGRLE01CAM657N',      'FRED – OECD MEI'),
+              'KOR': ('CPGRLE01KRM657N',      'FRED – OECD MEI'),
+              'AUS': ('CPGRLE01AUM657N',      'FRED – OECD MEI'),
+              # CHN, BRA, IND: not in OECD dataset → keep manual
           }
+          for c, (sid, src) in CORE_CPI.items():
+              v, d = fred_latest(sid)
+              update('core_inflation', c, v, d, src)
 
-          for country, (series_id, source) in fred_yields.items():
-              val, date = fred_latest(series_id)
-              if val is not None:
-                  old = data.get('bond_yields_10y', {}).get(country, {})
-                  if old.get('value') != round(val, 4) or old.get('date') != date:
-                      data.setdefault('bond_yields_10y', {})[country] = {
-                          'value': round(val, 4), 'date': date, 'source': source
-                      }
-                      changed = True
-                      print(f"  {country} 10Y yield → {val:.4f}% ({date})")
-              else:
-                  print(f"  {country}: no data for {series_id}", file=sys.stderr)
-
-          # CHN bond yield — ECB doesn't have it, FRED series doesn't exist.
-          # Keep manual value; flag in notes.
-          if 'CHN' not in data.get('bond_yields_10y', {}):
-              data.setdefault('bond_yields_10y', {})['CHN'] = {
-                  'value': 2.25, 'date': '2024-Q4',
-                  'source': 'Manual — no free API for China 10Y yield'
-              }
-              changed = True
-
-          # ── Core Inflation via FRED (OECD countries) ──────────────────────
-          print("Fetching core CPI via FRED...")
-
-          fred_core_cpi = {
-              'USA': 'CORESTICKM159SFRBATL',
-              'DEU': 'CPGRLE01DEM657N',
-              'JPN': 'CPGRLE01JPM657N',
-              'FRA': 'CPGRLE01FRM657N',
-              'GBR': 'CPGRLE01GBM657N',
-              'ITA': 'CPGRLE01ITM657N',
-              'CAN': 'CPGRLE01CAM657N',
-              'KOR': 'CPGRLE01KRM657N',
-              'AUS': 'CPGRLE01AUM657N',
-              # BRA, IND, CHN: not in OECD core CPI — keep manual
+          # ── Headline CPI (backup values for WB-lagged data) ───────────────
+          print("Headline CPI (backup)...")
+          HEADLINE_CPI = {
+              'USA': ('CPALTT01USM657N', 'FRED – OECD MEI'),
+              'DEU': ('CPALTT01DEM657N', 'FRED – OECD MEI'),
+              'JPN': ('CPALTT01JPM657N', 'FRED – OECD MEI'),
+              'FRA': ('CPALTT01FRM657N', 'FRED – OECD MEI'),
+              'GBR': ('CPALTT01GBM657N', 'FRED – OECD MEI'),
+              'ITA': ('CPALTT01ITM657N', 'FRED – OECD MEI'),
+              'CAN': ('CPALTT01CAM657N', 'FRED – OECD MEI'),
+              'CHN': ('CPALTT01CNM657N', 'FRED – OECD MEI'),
+              'KOR': ('CPALTT01KRM657N', 'FRED – OECD MEI'),
+              'AUS': ('CPALTT01AUM657N', 'FRED – OECD MEI'),
+              'BRA': ('CPALTT01BRM657N', 'FRED – OECD MEI'),
+              'IND': ('CPALTT01INM657N', 'FRED – OECD MEI'),
           }
+          for c, (sid, src) in HEADLINE_CPI.items():
+              v, d = fred_latest(sid)
+              update('headline_cpi', c, v, d, src)
 
-          for country, series_id in fred_core_cpi.items():
-              val, date = fred_latest(series_id)
-              if val is not None:
-                  old = data.get('core_inflation', {}).get(country, {})
-                  if old.get('value') != round(val, 4) or old.get('date') != date:
-                      data.setdefault('core_inflation', {})[country] = {
-                          'value': round(val, 4), 'date': date, 'source': 'FRED/OECD'
-                      }
-                      changed = True
-                      print(f"  {country} core CPI → {val:.4f}% ({date})")
-              else:
-                  print(f"  {country}: no data for {series_id}", file=sys.stderr)
+          # ── Unemployment (backup values) ───────────────
+          print("Unemployment (backup)...")
+          UNEMP = {
+              'USA': ('UNRATE',           'FRED – BLS'),
+              'DEU': ('LRUNTTTTDEM156S',  'FRED – OECD MEI'),
+              'JPN': ('LRUNTTTTJPM156S',  'FRED – OECD MEI'),
+              'FRA': ('LRUNTTTTFRM156S',  'FRED – OECD MEI'),
+              'GBR': ('LRUNTTTTGBM156S',  'FRED – OECD MEI'),
+              'ITA': ('LRUNTTTTITM156S',  'FRED – OECD MEI'),
+              'CAN': ('LRUNTTTTCAM156S',  'FRED – OECD MEI'),
+              'KOR': ('LRUNTTTTKRM156S',  'FRED – OECD MEI'),
+              'AUS': ('LRUNTTTTAUM156S',  'FRED – OECD MEI'),
+              'BRA': ('LRUNTTTTBRM156S',  'FRED – OECD MEI'),
+          }
+          for c, (sid, src) in UNEMP.items():
+              v, d = fred_latest(sid)
+              update('unemployment', c, v, d, src)
 
-          # ── Finalize ──────────────────────────────────────────────────────
+          # ── Finalize ──────────────────────────────────
           data['last_updated'] = today
-          data['source_note'] = (
-              'Auto-updated daily via GitHub Actions. '
-              'FRED/OECD data for policy rates, bond yields, core CPI. '
-              'China 10Y yield and non-OECD core CPI manually maintained.'
-          )
-
           with open('manual-data.json', 'w') as f:
               json.dump(data, f, indent=2)
-
-          if changed:
-              print(f"\nmanual-data.json updated with {today} data.")
-          else:
-              print("\nNo value changes — file timestamp updated.")
-
+          print(f"\n{'Changes written' if changed else 'No value changes'} — {today}")
           PYEOF
 
       - name: Commit if changed
@@ -188,6 +175,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "chore: auto-refresh data via FRED/OECD [$(date -u +%Y-%m-%d)]"
+            git commit -m "chore: auto-refresh FRED data [$(date -u +%Y-%m-%d)]"
             git push
           fi
