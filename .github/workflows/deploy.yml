@@ -27,6 +27,13 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Inject API keys
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: |
+          # Replace placeholder in config.js with the actual key (never stored in git)
+          sed -i "s/__FRED_API_KEY__/${FRED_API_KEY}/g" config.js
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

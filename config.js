@@ -5,16 +5,15 @@
    ═══════════════════════════════════════════════ */
 
 const CONFIG = {
-  FRED_API_KEY: 'abcdefghijklmnopqrstuvwxyz123456', // ← Replace with your FRED API key from https://fred.stlouisfed.org/docs/api/api_key.html
+  // Key is injected at deploy time via GitHub Actions (secret: FRED_API_KEY).
+  // For local development, replace this placeholder manually.
+  FRED_API_KEY: '__FRED_API_KEY__',
   CACHE_TTL_MS: 60 * 60 * 1000, // 1 hour
   API_TIMEOUT_MS: 12000,
   WORLD_BANK_BASE: 'https://api.worldbank.org/v2',
   FRED_BASE: 'https://api.stlouisfed.org/fred',
   ECB_BASE: 'https://data-api.ecb.europa.eu/service',
-  // IMF DataMapper API — free, no key required
-  // Indicators: FPOLM_PA (policy rate), NGDP_RPCH (GDP growth), PCPIPCH (CPI), LUR (unemployment)
   IMF_BASE: 'https://www.imf.org/external/datamapper/api/v1',
-  // Eurostat SDMX API — free, no key required — EU countries only
   EUROSTAT_BASE: 'https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data',
   MANUAL_DATA_URL: './manual-data.json',
 };
@@ -85,9 +84,101 @@ const IMF_INDICATORS = {
 
 // Eurostat geo codes for HICP core inflation (TOT_X_NRG_FOOD = excl. energy & food)
 const EUROSTAT_COUNTRIES = {
-  DEU: 'DE', FRA: 'FR', ITA: 'IT',  // Eurozone countries in our list
-  // GBR was removed from EU, but Eurostat still publishes UK data as EEA
+  DEU: 'DE', FRA: 'FR', ITA: 'IT',
 };
+
+// ── FRED series IDs per country ──────────────────────────────────────────────
+// Sources: OECD Main Economic Indicators via FRED (free, comprehensive)
+//
+// Policy rates: IRSTCB01{CC}M156N  — immediate/overnight interbank rate (tracks CB rate)
+//   Eurozone: ECBMRRFR             — ECB Main Refinancing Rate (exact official rate)
+//
+// 10Y bond yields: IRLTLT01{CC}M156N — long-term government bond yield, monthly
+//   USA: DGS10                     — daily constant-maturity 10Y (more timely)
+//
+// Core CPI (excl. food & energy, YoY %): CPGRLE01{CC}M657N — OECD MEI, monthly
+//   USA: CORESTICKM159SFRBATL      — Atlanta Fed Sticky Price Core CPI
+//
+// null = no FRED series exists; falls back to IMF DataMapper → manual-data.json
+const FRED_COUNTRY_SERIES = {
+  USA: {
+    policy_rate: 'FEDFUNDS',
+    bond_10y:    'DGS10',
+    core_cpi:    'CORESTICKM159SFRBATL',
+  },
+  DEU: {
+    policy_rate: 'ECBMRRFR',
+    bond_10y:    'IRLTLT01DEM156N',
+    core_cpi:    'CPGRLE01DEM657N',
+  },
+  JPN: {
+    policy_rate: 'IRSTCB01JPM156N',
+    bond_10y:    'IRLTLT01JPM156N',
+    core_cpi:    'CPGRLE01JPM657N',
+  },
+  FRA: {
+    policy_rate: 'ECBMRRFR',
+    bond_10y:    'IRLTLT01FRM156N',
+    core_cpi:    'CPGRLE01FRM657N',
+  },
+  GBR: {
+    policy_rate: 'IRSTCB01GBM156N',
+    bond_10y:    'IRLTLT01GBM156N',
+    core_cpi:    'CPGRLE01GBM657N',
+  },
+  ITA: {
+    policy_rate: 'ECBMRRFR',
+    bond_10y:    'IRLTLT01ITM156N',
+    core_cpi:    'CPGRLE01ITM657N',
+  },
+  CAN: {
+    policy_rate: 'IRSTCB01CAM156N',
+    bond_10y:    'IRLTLT01CAM156N',
+    core_cpi:    'CPGRLE01CAM657N',
+  },
+  CHN: {
+    // China is not OECD — limited FRED coverage
+    policy_rate: 'IRSTCB01CNM156N',
+    bond_10y:    null,              // No FRED series; manual-data.json fallback
+    core_cpi:    null,
+  },
+  KOR: {
+    policy_rate: 'IRSTCB01KRM156N',
+    bond_10y:    'IRLTLT01KRM156N',
+    core_cpi:    'CPGRLE01KRM657N',
+  },
+  AUS: {
+    policy_rate: 'IRSTCB01AUM156N',
+    bond_10y:    'IRLTLT01AUM156N',
+    core_cpi:    'CPGRLE01AUM657N',
+  },
+  BRA: {
+    policy_rate: 'IRSTCB01BRM156N',
+    bond_10y:    'IRLTLT01BRM156N',
+    core_cpi:    null,              // Brazil not in OECD core CPI dataset
+  },
+  IND: {
+    policy_rate: 'IRSTCB01INM156N',
+    bond_10y:    'IRLTLT01INM156N',
+    core_cpi:    null,
+  },
+};
+
+// FRED series for multi-country monetary time-series charts
+const FRED_CHART_MONETARY = [
+  {
+    id: 'policy_rate_chart',
+    label: 'Central Bank Policy Rates (%)',
+    unit: '%',
+    seriesKey: 'policy_rate',
+  },
+  {
+    id: 'bond_yield_10y_chart',
+    label: '10Y Government Bond Yields (%)',
+    unit: '%',
+    seriesKey: 'bond_10y',
+  },
+];
 
 
 const METRIC_DEFINITIONS = [
@@ -118,14 +209,17 @@ const METRIC_DEFINITIONS = [
   { id: 'old_age_dep',        label: 'Old-Age Dependency Ratio',unit: '%',   category: 'demographic', source: 'wb',     wbCode: 'SP.POP.DPND.OL',   format: 'pct',      colorize: false },
 ];
 
-// Which metrics get time-series charts
+// Time-series charts (World Bank annual data)
 const CHART_METRICS = [
-  { id: 'gdp_growth',     label: 'Real GDP Growth (%)',     wbCode: 'NY.GDP.MKTP.KD.ZG', unit: '%'  },
-  { id: 'inflation_cpi',  label: 'Inflation CPI (YoY, %)',  wbCode: 'FP.CPI.TOTL.ZG',    unit: '%'  },
-  { id: 'gdp_per_capita', label: 'GDP per Capita (USD)',    wbCode: 'NY.GDP.PCAP.CD',     unit: 'USD'},
-  { id: 'unemployment',   label: 'Unemployment Rate (%)',   wbCode: 'SL.UEM.TOTL.ZS',    unit: '%'  },
-  { id: 'govt_debt',      label: 'Govt. Debt (% of GDP)',  wbCode: 'GC.DOD.TOTL.GD.ZS', unit: '%'  },
-  { id: 'current_account',label: 'Current Account (% GDP)',wbCode: 'BN.CAB.XOKA.GD.ZS', unit: '%'  },
+  { id: 'gdp_growth',      label: 'Real GDP Growth (%)',      wbCode: 'NY.GDP.MKTP.KD.ZG', unit: '%',  src: 'wb' },
+  { id: 'inflation_cpi',   label: 'Inflation CPI (YoY, %)',   wbCode: 'FP.CPI.TOTL.ZG',    unit: '%',  src: 'wb' },
+  { id: 'gdp_per_capita',  label: 'GDP per Capita (USD)',     wbCode: 'NY.GDP.PCAP.CD',     unit: 'USD', src: 'wb' },
+  { id: 'unemployment',    label: 'Unemployment Rate (%)',    wbCode: 'SL.UEM.TOTL.ZS',    unit: '%',  src: 'wb' },
+  { id: 'govt_debt',       label: 'Govt. Debt (% of GDP)',   wbCode: 'GC.DOD.TOTL.GD.ZS', unit: '%',  src: 'wb' },
+  { id: 'current_account', label: 'Current Account (% GDP)', wbCode: 'BN.CAB.XOKA.GD.ZS', unit: '%',  src: 'wb' },
+  // FRED-sourced monthly charts (monetary data)
+  { id: 'policy_rate_chart',   label: 'Central Bank Rates (%)',    unit: '%', src: 'fred', fredKey: 'policy_rate',  category: 'monetary' },
+  { id: 'bond_yield_10y_chart', label: '10Y Govt Bond Yields (%)', unit: '%', src: 'fred', fredKey: 'bond_10y',     category: 'monetary' },
 ];
 
 // Chart color palette for compare mode

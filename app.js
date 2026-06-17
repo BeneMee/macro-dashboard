@@ -292,29 +292,53 @@ async function fetchEurostatCoreInflation(iso3) {
   }
 }
 
+// ─── FRED TIME SERIES (for charts) ───────────────
+// Returns array of {date: 'YYYY-MM-DD', value} sorted ascending
+async function fetchFREDSeries(seriesId, startYear = 2000) {
+  const cacheKey = `fred_series_${seriesId}`;
+  const cached = Cache.get(cacheKey);
+  if (cached) return cached;
+
+  const url = `${CONFIG.FRED_BASE}/series/observations?series_id=${seriesId}&api_key=${CONFIG.FRED_API_KEY}&file_type=json&sort_order=asc&observation_start=${startYear}-01-01&limit=600`;
+  try {
+    const json = await fetchWithTimeout(url);
+    if (!json.observations) return null;
+    const data = json.observations
+      .filter(o => o.value !== '.' && o.value !== '')
+      .map(o => ({ date: o.date, value: parseFloat(o.value) }));
+    if (!data.length) return null;
+    Cache.set(cacheKey, data);
+    return data;
+  } catch (e) {
+    console.warn(`FRED series failed (${seriesId}):`, e.message);
+    return null;
+  }
+}
+
 // ─── METRIC FETCHERS ──────────────────────────────
-// Priority chains: authoritative real-time source first, then IMF, then manual fallback.
+// Priority: FRED (primary, monthly/daily) → ECB (Eurozone backup) → IMF → manual
 
 async function fetchPolicyRate(country) {
   const iso3 = country.wb;
+  const series = FRED_COUNTRY_SERIES[iso3];
 
-  // USA: FRED (monthly, most accurate)
-  if (iso3 === 'USA') {
-    const r = await fetchFREDLatest(FRED_SERIES.fed_funds_rate);
+  // FRED — primary source for all countries
+  if (series?.policy_rate) {
+    const r = await fetchFREDLatest(series.policy_rate);
     if (r) return r;
   }
 
-  // Eurozone (DE, FR, IT): ECB → IMF → manual
+  // ECB — backup for Eurozone if FRED ECBMRRFR is unavailable
   if (['DEU','FRA','ITA'].includes(iso3)) {
     const ecb = await fetchECBLatest('FM,1.0,', 'B.U2.EUR.4F.KR.MRR_FR.LEV');
     if (ecb) return ecb;
   }
 
-  // All countries: IMF DataMapper (FPOLM_PA) — covers JP, GB, CA, CN, KR, AU, BR, IN
+  // IMF DataMapper — catches any country FRED misses
   const imf = await fetchIMFLatest(IMF_INDICATORS.policy_rate, iso3);
   if (imf) return imf;
 
-  // Final fallback: manual-data.json (updated daily by GitHub Actions)
+  // Final fallback: manual-data.json
   if (state.manualData?.policy_rates?.[iso3]) {
     const m = state.manualData.policy_rates[iso3];
     return { value: m.value, date: m.date, source: 'manual' };
@@ -324,14 +348,15 @@ async function fetchPolicyRate(country) {
 
 async function fetchBondYield(country) {
   const iso3 = country.wb;
+  const series = FRED_COUNTRY_SERIES[iso3];
 
-  // USA → FRED
-  if (iso3 === 'USA') {
-    const r = await fetchFREDLatest(FRED_SERIES.us_10y_yield);
+  // FRED — covers USA (DGS10) + DE/JP/FR/GB/IT/CA/KR/AU/BR/IN via IRLTLT01 series
+  if (series?.bond_10y) {
+    const r = await fetchFREDLatest(series.bond_10y);
     if (r) return r;
   }
 
-  // Eurozone: ECB SDMX bond yield series
+  // ECB — backup for Eurozone bond yields (more granular)
   const ecbBondKeys = {
     DEU: 'B.DE.EUR.FR.BB.U2_10Y.YLD',
     FRA: 'B.FR.EUR.FR.BB.U2_10Y.YLD',
@@ -342,7 +367,7 @@ async function fetchBondYield(country) {
     if (r) return r;
   }
 
-  // No free API for 10Y yields of JP, GB, CA, CN, KR, AU, BR, IN → manual only
+  // Manual fallback (mainly China, where no free API has 10Y yield)
   if (state.manualData?.bond_yields_10y?.[iso3]) {
     const m = state.manualData.bond_yields_10y[iso3];
     return { value: m.value, date: m.date, source: 'manual' };
@@ -352,22 +377,21 @@ async function fetchBondYield(country) {
 
 async function fetchCoreInflation(country) {
   const iso3 = country.wb;
+  const series = FRED_COUNTRY_SERIES[iso3];
 
-  // USA: FRED sticky-price core CPI YoY
-  if (iso3 === 'USA') {
-    const r = await fetchFREDLatest(FRED_SERIES.us_core_cpi_yoy);
+  // FRED — covers USA + all OECD countries (DE/JP/FR/GB/IT/CA/KR/AU via CPGRLE01 series)
+  if (series?.core_cpi) {
+    const r = await fetchFREDLatest(series.core_cpi);
     if (r) return r;
   }
 
-  // EU countries: Eurostat HICP excl. energy & food
+  // Eurostat — backup for EU countries (HICP excl. food & energy, more recent)
   if (EUROSTAT_COUNTRIES[iso3]) {
     const r = await fetchEurostatCoreInflation(iso3);
     if (r) return r;
   }
 
-  // All others: IMF (if they publish a core figure — coverage varies)
-  // IMF PCPIPCH is headline CPI, not core — skip for core metric
-  // Fall through to manual
+  // Manual fallback (BRA, IND, CHN — no OECD core CPI series)
   if (state.manualData?.core_inflation?.[iso3]) {
     const m = state.manualData.core_inflation[iso3];
     return { value: m.value, date: m.date, source: 'manual' };
@@ -658,13 +682,33 @@ async function renderChart(chartDef, countries, range) {
   const canvasId = `chart-${chartDef.id}`;
   const seriesMap = {};
 
-  const fetches = countries.map(async (country) => {
-    const series = await fetchWB(country.wb, chartDef.wbCode, 25);
-    if (series && series.length) {
-      seriesMap[country.wb] = filterByRange(series, range);
-    }
-  });
-  await Promise.all(fetches);
+  if (chartDef.src === 'fred') {
+    // FRED monthly charts — convert date strings to pseudo-year decimals for x-axis
+    const fetches = countries.map(async (country) => {
+      const fredSeries = FRED_COUNTRY_SERIES[country.wb];
+      const seriesId = fredSeries?.[chartDef.fredKey];
+      if (!seriesId) return;
+      const data = await fetchFREDSeries(seriesId, 2000);
+      if (!data || !data.length) return;
+      // Filter by range and convert to {year, value} format for chart compatibility
+      const cutoffYears = { '5y': 5, '10y': 10, '20y': 20 };
+      const cutoff = range === 'max' ? 0 : new Date().getFullYear() - (cutoffYears[range] || 20);
+      const filtered = data
+        .filter(d => parseInt(d.date) >= cutoff)
+        .map(d => ({ year: parseFloat(d.date.slice(0,4)) + (parseInt(d.date.slice(5,7))-1)/12, value: d.value }));
+      if (filtered.length) seriesMap[country.wb] = filtered;
+    });
+    await Promise.all(fetches);
+  } else {
+    // World Bank annual charts
+    const fetches = countries.map(async (country) => {
+      const series = await fetchWB(country.wb, chartDef.wbCode, 25);
+      if (series && series.length) {
+        seriesMap[country.wb] = filterByRange(series, range);
+      }
+    });
+    await Promise.all(fetches);
+  }
 
   createOrUpdateChart(canvasId, chartDef, seriesMap, chartDef.unit);
 }
