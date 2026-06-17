@@ -1,0 +1,146 @@
+name: Daily Data Refresh
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # 06:00 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update manual-data.json via APIs
+        run: |
+          python3 << 'PYEOF'
+          import json, urllib.request, urllib.error, datetime, sys
+
+          def fetch(url, timeout=10):
+              try:
+                  req = urllib.request.Request(url, headers={'User-Agent': 'MacroMonitor/1.0'})
+                  with urllib.request.urlopen(req, timeout=timeout) as r:
+                      return json.loads(r.read())
+              except Exception as e:
+                  print(f"  WARN: {url[:80]}... → {e}", file=sys.stderr)
+                  return None
+
+          today = datetime.date.today().isoformat()
+
+          with open('manual-data.json', 'r') as f:
+              data = json.load(f)
+
+          changed = False
+
+          # ── Policy Rates ──────────────────────────────
+          print("Fetching policy rates...")
+
+          # USA: FRED (public demo key — limited rate)
+          fred_key = "abcdefghijklmnopqrstuvwxyz123456"
+          fred_url = f"https://api.stlouisfed.org/fred/series/observations?series_id=FEDFUNDS&api_key={fred_key}&file_type=json&sort_order=desc&limit=1"
+          fred_data = fetch(fred_url)
+          if fred_data and fred_data.get("observations"):
+              obs = fred_data["observations"][0]
+              if obs.get("value") and obs["value"] != ".":
+                  new_val = round(float(obs["value"]), 4)
+                  new_date = obs["date"][:7]
+                  old = data.get("policy_rates", {}).get("USA", {})
+                  if old.get("value") != new_val:
+                      data.setdefault("policy_rates", {})["USA"] = {
+                          "value": new_val, "date": new_date, "source": "Federal Reserve (FRED)"
+                      }
+                      changed = True
+                      print(f"  USA policy rate → {new_val}%")
+
+          # Eurozone: ECB
+          ecb_url = "https://data-api.ecb.europa.eu/service/data/FM,1.0,/B.U2.EUR.4F.KR.MRR_FR.LEV?format=jsondata&lastNObservations=1"
+          ecb_data = fetch(ecb_url)
+          if ecb_data:
+              try:
+                  obs_dict = ecb_data["dataSets"][0]["series"]["0:0:0:0:0:0:0"]["observations"]
+                  last_idx = max(obs_dict.keys(), key=int)
+                  val = obs_dict[last_idx][0]
+                  periods = ecb_data["structure"]["dimensions"]["observation"][0]["values"]
+                  period = periods[int(last_idx)]["id"]
+                  for country in ["DEU", "FRA", "ITA"]:
+                      old = data.get("policy_rates", {}).get(country, {})
+                      if old.get("value") != round(val, 4):
+                          data.setdefault("policy_rates", {})[country] = {
+                              "value": round(val, 4), "date": period, "source": "ECB"
+                          }
+                          changed = True
+                          print(f"  {country} policy rate → {val}%")
+              except Exception as e:
+                  print(f"  ECB parse error: {e}", file=sys.stderr)
+
+          # ── Bond Yields (ECB for DE, FR, IT) ─────────
+          print("Fetching bond yields...")
+          bond_series = {
+              "DEU": "B.DE.EUR.FR.BB.U2_10Y.YLD",
+              "FRA": "B.FR.EUR.FR.BB.U2_10Y.YLD",
+              "ITA": "B.IT.EUR.FR.BB.U2_10Y.YLD",
+          }
+          for country, key in bond_series.items():
+              url = f"https://data-api.ecb.europa.eu/service/data/FM,1.0,/{key}?format=jsondata&lastNObservations=1"
+              result = fetch(url)
+              if result:
+                  try:
+                      obs_dict = result["dataSets"][0]["series"]["0:0:0:0:0:0"]["observations"]
+                      last_idx = max(obs_dict.keys(), key=int)
+                      val = obs_dict[last_idx][0]
+                      periods = result["structure"]["dimensions"]["observation"][0]["values"]
+                      period = periods[int(last_idx)]["id"]
+                      old = data.get("bond_yields_10y", {}).get(country, {})
+                      if old.get("value") != round(val, 4):
+                          data.setdefault("bond_yields_10y", {})[country] = {
+                              "value": round(val, 4), "date": period, "source": "ECB"
+                          }
+                          changed = True
+                          print(f"  {country} 10Y yield → {val}%")
+                  except Exception as e:
+                      print(f"  ECB bond {country} parse error: {e}", file=sys.stderr)
+
+          # USA 10Y via FRED
+          us_10y_url = f"https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&api_key={fred_key}&file_type=json&sort_order=desc&limit=1"
+          us_10y = fetch(us_10y_url)
+          if us_10y and us_10y.get("observations"):
+              obs = us_10y["observations"][0]
+              if obs.get("value") and obs["value"] != ".":
+                  new_val = round(float(obs["value"]), 4)
+                  new_date = obs["date"][:7]
+                  old = data.get("bond_yields_10y", {}).get("USA", {})
+                  if old.get("value") != new_val:
+                      data.setdefault("bond_yields_10y", {})["USA"] = {
+                          "value": new_val, "date": new_date, "source": "FRED"
+                      }
+                      changed = True
+                      print(f"  USA 10Y yield → {new_val}%")
+
+          # ── Finalize ──────────────────────────────────
+          if changed:
+              data["last_updated"] = today
+              with open('manual-data.json', 'w') as f:
+                  json.dump(data, f, indent=2)
+              print(f"manual-data.json updated ({today})")
+          else:
+              print("No changes detected, skipping commit.")
+
+          PYEOF
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet manual-data.json; then
+            echo "No changes to commit."
+          else
+            git add manual-data.json
+            git commit -m "chore: auto-refresh manual-data.json [$(date -u +%Y-%m-%d)]"
+            git push
+          fi

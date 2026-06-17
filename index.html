@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MACRO DASHBOARD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+  <!-- HEADER -->
+  <header id="header">
+    <div class="header-left">
+      <div class="logo">
+        <span class="logo-bracket">[</span>MACRO<span class="logo-accent">MONITOR</span><span class="logo-bracket">]</span>
+      </div>
+      <div class="header-meta">
+        <span class="meta-item" id="clock">--:--:-- UTC</span>
+        <span class="meta-sep">|</span>
+        <span class="meta-item" id="global-status">LOADING</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="search-wrapper">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="metric-search" placeholder="Filter metrics..." autocomplete="off">
+      </div>
+      <button class="btn-compare" id="btn-compare-toggle">COMPARE MODE</button>
+    </div>
+  </header>
+
+  <!-- CONTROLS BAR -->
+  <div id="controls">
+    <div class="controls-left">
+      <!-- Country Select -->
+      <div class="select-wrapper" id="country-select-wrapper">
+        <div class="custom-select" id="country-select-display">
+          <span class="select-flag" id="selected-flag">🇺🇸</span>
+          <span id="selected-country-name">United States</span>
+          <span class="select-arrow">▾</span>
+        </div>
+        <div class="select-dropdown" id="country-dropdown">
+          <input type="text" id="country-search" placeholder="Search country..." autocomplete="off">
+          <div class="dropdown-list" id="dropdown-list"></div>
+        </div>
+      </div>
+      <!-- Compare Select (hidden by default) -->
+      <div class="compare-tags" id="compare-tags" style="display:none"></div>
+      <div class="select-wrapper" id="compare-select-wrapper" style="display:none">
+        <div class="custom-select" id="compare-select-display">
+          <span>+ Add Country</span>
+          <span class="select-arrow">▾</span>
+        </div>
+        <div class="select-dropdown" id="compare-dropdown">
+          <input type="text" id="compare-search" placeholder="Search country..." autocomplete="off">
+          <div class="dropdown-list" id="compare-dropdown-list"></div>
+        </div>
+      </div>
+    </div>
+    <div class="controls-right">
+      <!-- Category Tabs -->
+      <div class="category-tabs" id="category-tabs">
+        <button class="tab active" data-cat="all">ALL</button>
+        <button class="tab" data-cat="growth">GROWTH</button>
+        <button class="tab" data-cat="inflation">INFLATION</button>
+        <button class="tab" data-cat="labor">LABOR</button>
+        <button class="tab" data-cat="fiscal">FISCAL</button>
+        <button class="tab" data-cat="external">EXTERNAL</button>
+        <button class="tab" data-cat="monetary">MONETARY</button>
+        <button class="tab" data-cat="demographic">DEMOG.</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <main id="main-content">
+    <!-- Loading Overlay -->
+    <div id="loading-overlay">
+      <div class="loader-ring"></div>
+      <div class="loader-text">FETCHING DATA<span class="blink">_</span></div>
+    </div>
+
+    <!-- Metrics Grid -->
+    <div id="metrics-grid"></div>
+
+    <!-- Charts Section -->
+    <div id="charts-section">
+      <div id="charts-grid"></div>
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer id="footer">
+    <div class="footer-sources">
+      <span class="footer-label">SOURCES:</span>
+      <span class="source-badge wb">World Bank</span>
+      <span class="source-badge fred">FRED/St.Louis Fed</span>
+      <span class="source-badge ecb">ECB</span>
+      <span class="source-badge oecd">OECD</span>
+      <span class="source-badge manual">Manual</span>
+    </div>
+    <div class="footer-right">
+      <span id="footer-last-fetch">Last fetch: --</span>
+      <span class="footer-sep">|</span>
+      <a href="https://github.com/BeneMee/macro-dashboard" target="_blank" class="footer-link">GitHub</a>
+    </div>
+  </footer>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
