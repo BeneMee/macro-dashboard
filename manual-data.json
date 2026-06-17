@@ -42,5 +42,20 @@
     "AUS": { "value": 3.2, "date": "2024-12", "source": "FRED/OECD (CPGRLE01AUM657N)" },
     "BRA": { "value": 4.1, "date": "2024-Q4", "source": "Manual — Brazil not in OECD core CPI dataset" },
     "IND": { "value": 3.6, "date": "2024-Q4", "source": "Manual — India not in OECD core CPI dataset" }
+  },
+  "govt_debt_general": {
+    "source_note": "IMF General Government Gross Debt (% GDP, GGXWDG_NGDP). Auto-updated daily via GitHub Actions.",
+    "USA": { "value": 122.1, "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
+    "DEU": { "value": 62.4,  "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
+    "JPN": { "value": 254.3, "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
+    "FRA": { "value": 111.9, "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
+    "GBR": { "value": 101.0, "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
+    "ITA": { "value": 136.9, "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
+    "CAN": { "value": 106.4, "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
+    "CHN": { "value": 91.8,  "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
+    "KOR": { "value": 54.5,  "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
+    "AUS": { "value": 55.0,  "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
+    "BRA": { "value": 88.1,  "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
+    "IND": { "value": 83.0,  "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" }
   }
 }

@@ -12,7 +12,16 @@ const CONFIG = {
   FRED_BASE:       'https://api.stlouisfed.org/fred',
   ECB_BASE:        'https://data-api.ecb.europa.eu/service',
   IMF_BASE:        'https://www.imf.org/external/datamapper/api/v1',
+  EUROSTAT_BASE:   'https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data',
   MANUAL_DATA_URL: './manual-data.json',
+};
+
+// Eurostat geo codes for EU/EEA countries (ISO3 → Eurostat code)
+const EUROSTAT_COUNTRIES = {
+  DEU: 'DE',
+  FRA: 'FR',
+  ITA: 'IT',
+  GBR: 'UK',
 };
 
 const COUNTRIES = [
@@ -68,21 +77,21 @@ const FRED_COUNTRY_SERIES = {
     bond_10y:      'IRLTLT01DEM156N',      // Germany 10Y Govt Bond Yield (OECD MEI)
     core_cpi:      'CPGRLE01DEM657N',      // Core CPI excl. food & energy YoY % (OECD)
     cpi_yoy:       'CPALTT01DEM657N',      // Headline CPI YoY %
-    unemployment:  'LRUNTTTTDEM156S',      // Harmonised unemployment rate (OECD)
+    unemployment:  'LMUNRRTTDEM156S',      // Germany unemployment rate (Bundesagentur für Arbeit via OECD)
     youth_unemp:   'SLUEM1524ZSDEA',       // Youth unemployment 15–24 (World Bank via FRED)
-    labor_part:    'LRAC64TTDEM156S',      // Labour force participation 15–64 (OECD)
-    govt_debt:     'GGGDTP01DEA156N',      // General govt gross debt % GDP (OECD)
+    labor_part:    null,                   // LRAC64TTDEM156S no longer on FRED → WB fallback
+    // govt_debt removed — GGGDTP01DEA156N returns HTTP 400; IMF DataMapper is primary
   },
 
   JPN: {
     policy_rate:   'IRSTCB01JPM156N',      // Bank of Japan policy rate proxy (OECD)
     bond_10y:      'IRLTLT01JPM156N',      // Japan 10Y Govt Bond Yield (OECD)
-    core_cpi:      'CPGRLE01JPM657N',      // Core CPI YoY %
+    core_cpi:      'CPGRLE01JPM657N',      // Core CPI YoY % (OECD, 657N = same period prev year)
     cpi_yoy:       'CPALTT01JPM657N',      // Headline CPI YoY %
     unemployment:  'LRUNTTTTJPM156S',      // Unemployment rate (OECD)
     youth_unemp:   'SLUEM1524ZSJPA',       // Youth unemployment (World Bank via FRED)
     labor_part:    'LRAC64TTJPM156S',      // Labour force participation (OECD)
-    govt_debt:     'GGGDTP01JPA156N',      // General govt gross debt % GDP (OECD)
+    // govt_debt removed — GGGDTP01JPA156N returns HTTP 400; IMF DataMapper is primary
   },
 
   FRA: {
@@ -93,7 +102,7 @@ const FRED_COUNTRY_SERIES = {
     unemployment:  'LRUNTTTTFRM156S',
     youth_unemp:   'SLUEM1524ZSFRA',
     labor_part:    'LRAC64TTFRM156S',
-    govt_debt:     'GGGDTP01FRA156N',
+    // govt_debt removed — GGGDTP01FRA156N returns HTTP 400
   },
 
   GBR: {
@@ -104,7 +113,7 @@ const FRED_COUNTRY_SERIES = {
     unemployment:  'LRUNTTTTGBM156S',
     youth_unemp:   'SLUEM1524ZSGBA',
     labor_part:    'LRAC64TTGBM156S',
-    govt_debt:     'GGGDTP01GBA156N',
+    // govt_debt removed — GGGDTP01GBA156N returns HTTP 400
   },
 
   ITA: {
@@ -115,7 +124,7 @@ const FRED_COUNTRY_SERIES = {
     unemployment:  'LRUNTTTTITM156S',
     youth_unemp:   'SLUEM1524ZSITA',
     labor_part:    'LRAC64TTITM156S',
-    govt_debt:     'GGGDTP01ITA156N',
+    // govt_debt removed — GGGDTP01ITA156N returns HTTP 400
   },
 
   CAN: {
@@ -126,12 +135,11 @@ const FRED_COUNTRY_SERIES = {
     unemployment:  'LRUNTTTTCAM156S',
     youth_unemp:   'SLUEM1524ZSCAA',
     labor_part:    'LRAC64TTCAM156S',
-    govt_debt:     'GGGDTP01CAA156N',
+    // govt_debt removed — GGGDTP01CAA156N returns HTTP 400
   },
 
   CHN: {
     // China is not an OECD member — OECD MEI series don't exist.
-    // FRED has limited China data (mostly World Bank echoes).
     policy_rate:   'IRSTCB01CNM156N',      // China interbank rate (OECD has partial)
     bond_10y:      null,                   // No free API — manual-data.json
     core_cpi:      null,                   // Not in OECD dataset — manual-data.json
@@ -139,7 +147,7 @@ const FRED_COUNTRY_SERIES = {
     unemployment:  null,                   // China official data unreliable on FRED
     youth_unemp:   null,
     labor_part:    null,
-    govt_debt:     'GGGDTP01CNA156N',      // IMF-sourced via FRED (if available)
+    // govt_debt removed — GGGDTP01CNA156N returns HTTP 400
   },
 
   KOR: {
@@ -150,42 +158,42 @@ const FRED_COUNTRY_SERIES = {
     unemployment:  'LRUNTTTTKRM156S',
     youth_unemp:   'SLUEM1524ZSKRA',
     labor_part:    'LRAC64TTKRM156S',
-    govt_debt:     'GGGDTP01KRA156N',
+    // govt_debt removed — GGGDTP01KRA156N returns HTTP 400
   },
 
   AUS: {
     policy_rate:   'IRSTCB01AUM156N',
     bond_10y:      'IRLTLT01AUM156N',
     core_cpi:      'CPGRLE01AUM657N',
-    cpi_yoy:       'CPALTT01AUM657N',
+    cpi_yoy:       null,                   // CPALTT01AUM657N returns HTTP 400 → WB fallback
     unemployment:  'LRUNTTTTAUM156S',
     youth_unemp:   'SLUEM1524ZSAUA',
     labor_part:    'LRAC64TTAUM156S',
-    govt_debt:     'GGGDTP01AUA156N',
+    // govt_debt removed — GGGDTP01AUA156N returns HTTP 400
   },
 
   BRA: {
     // Brazil is not OECD — limited MEI coverage
     policy_rate:   'IRSTCB01BRM156N',
     bond_10y:      'IRLTLT01BRM156N',
-    core_cpi:      null,
+    core_cpi:      null,                   // No OECD core CPI — manual-data.json
     cpi_yoy:       'CPALTT01BRM657N',      // OECD has partial Brazil data
     unemployment:  'LRUNTTTTBRM156S',
     youth_unemp:   'SLUEM1524ZSBRA',
     labor_part:    null,
-    govt_debt:     'GGGDTP01BRA156N',
+    // govt_debt removed — GGGDTP01BRA156N returns HTTP 400
   },
 
   IND: {
     // India is not OECD — limited MEI coverage
     policy_rate:   'IRSTCB01INM156N',
     bond_10y:      'IRLTLT01INM156N',
-    core_cpi:      null,
+    core_cpi:      null,                   // No OECD core CPI — manual-data.json
     cpi_yoy:       'CPALTT01INM657N',
     unemployment:  null,                   // India unemployment not well-covered on FRED
     youth_unemp:   null,
     labor_part:    null,
-    govt_debt:     'GGGDTP01INA156N',
+    // govt_debt removed — GGGDTP01INA156N returns HTTP 400
   },
 };
 
@@ -265,8 +273,10 @@ const CHART_METRICS = [
   { id: 'current_account',label: 'Current Account (% GDP)', src: 'wb', wbCode: 'BN.CAB.XOKA.GD.ZS', unit: '%'  },
   { id: 'govt_debt_wb',   label: 'Govt. Debt — General (% GDP)', src: 'imf', imfCode: 'GGXWDG_NGDP', unit: '%' },
 
-  // FRED monthly charts (higher frequency, more timely)
-  { id: 'inflation_chart',  label: 'Headline CPI Inflation (%)',  src: 'fred', fredKey: 'cpi_yoy',      unit: '%', category: 'inflation' },
+  // Inflation — World Bank annual (covers all 12 countries reliably)
+  { id: 'inflation_chart',  label: 'Headline CPI Inflation (%)',  src: 'wb',   wbCode: 'FP.CPI.TOTL.ZG', unit: '%', category: 'inflation' },
+
+  // FRED monthly charts (higher frequency, more timely — uses fixed series per country)
   { id: 'unemp_chart',      label: 'Unemployment Rate (%)',       src: 'fred', fredKey: 'unemployment', unit: '%', category: 'labor'    },
   { id: 'policy_rate_chart',label: 'Central Bank Rates (%)',      src: 'fred', fredKey: 'policy_rate',  unit: '%', category: 'monetary' },
   { id: 'yield_chart',      label: '10Y Govt Bond Yields (%)',    src: 'fred', fredKey: 'bond_10y',     unit: '%', category: 'monetary' },

@@ -339,11 +339,7 @@ async function fetchPolicyRate(country) {
     if (ecb) return ecb;
   }
 
-  // IMF DataMapper — catches any country FRED misses
-  const imf = await fetchIMFLatest(IMF_INDICATORS.policy_rate, iso3);
-  if (imf) return imf;
-
-  // Final fallback: manual-data.json
+  // Final fallback: manual-data.json (updated daily by GitHub Actions from FRED)
   if (state.manualData?.policy_rates?.[iso3]) {
     const m = state.manualData.policy_rates[iso3];
     return { value: m.value, date: m.date, source: 'manual' };
@@ -405,26 +401,22 @@ async function fetchCoreInflation(country) {
 }
 
 // ─── GOVERNMENT DEBT (special fetcher) ───────────
-// Priority: FRED OECD series → IMF DataMapper → WB central-govt (last resort)
+// Priority: IMF DataMapper → manual-data.json govt_debt_general (refreshed daily)
 // IMF GGXWDG_NGDP = General Government Gross Debt (% GDP) — all levels of govt.
-// WB GC.DOD.TOTL.GD.ZS = Central government only → understates debt for federal states.
+// WB GC.DOD.TOTL.GD.ZS = Central government only and has gaps (Germany: only 1990 data).
+// All FRED GGGDTP01{CC}A156N series were removed — they return HTTP 400.
 async function fetchGovtDebt(country) {
   const iso3 = country.wb;
-  const fs = FRED_COUNTRY_SERIES[iso3] || {};
 
-  // 1. FRED OECD series (GGGDTP01{CC}A156N — general govt gross debt)
-  if (fs.govt_debt) {
-    const r = await fetchFREDLatest(fs.govt_debt);
-    if (r) return r;
-  }
-
-  // 2. IMF DataMapper GGXWDG_NGDP — general government gross debt, all countries
+  // 1. IMF DataMapper GGXWDG_NGDP — general government gross debt, all countries
   const imf = await fetchIMFLatest('GGXWDG_NGDP', iso3);
   if (imf) return imf;
 
-  // 3. WB fallback (central govt only — flagged with source so user can see it)
-  const wb = await fetchWBLatest(iso3, 'GC.DOD.TOTL.GD.ZS');
-  if (wb) return { ...wb, source: 'wb_central' }; // distinct label for central-govt-only
+  // 2. manual-data.json govt_debt_general (refreshed daily from IMF by GitHub Actions)
+  if (state.manualData?.govt_debt_general?.[iso3]) {
+    const m = state.manualData.govt_debt_general[iso3];
+    return { value: m.value, date: m.date, source: 'manual' };
+  }
   return null;
 }
 

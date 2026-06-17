@@ -160,6 +160,50 @@ jobs:
               v, d = fred_latest(sid)
               update('unemployment', c, v, d, src)
 
+          # ── General Govt Debt (IMF DataMapper) ────────
+          print("General govt debt (IMF GGXWDG_NGDP)...")
+          IMF_COUNTRIES = ['USA','DEU','JPN','FRA','GBR','ITA','CAN','CHN','KOR','AUS','BRA','IND']
+          def imf_latest(indicator, iso3):
+              url = f"https://www.imf.org/external/datamapper/api/v1/{indicator}/{iso3}"
+              for attempt in range(3):
+                  try:
+                      req = urllib.request.Request(url, headers={'User-Agent': 'MacroMonitor/1.0'})
+                      with urllib.request.urlopen(req, timeout=20) as r:
+                          js = json.loads(r.read())
+                      country_data = (js.get('values') or {}).get(indicator, {}).get(iso3, {})
+                      if not country_data:
+                          return None, None
+                      # get latest non-null year
+                      valid = [(int(yr), v) for yr, v in country_data.items() if v is not None]
+                      if not valid:
+                          return None, None
+                      yr, val = max(valid, key=lambda x: x[0])
+                      return round(float(val), 2), str(yr)
+                  except Exception as e:
+                      if attempt == 2:
+                          print(f"  WARN IMF {indicator}/{iso3}: {e}", file=sys.stderr)
+                          return None, None
+
+          def update_general(section, country, val, date, source):
+              global changed
+              if val is None:
+                  return
+              old = data.get(section, {}).get(country, {})
+              if old.get('value') != val or old.get('date') != date:
+                  data.setdefault(section, {})[country] = {'value': val, 'date': date, 'source': source}
+                  changed = True
+                  print(f"  {country} {section} → {val} ({date})")
+
+          for c in IMF_COUNTRIES:
+              v, d = imf_latest('GGXWDG_NGDP', c)
+              update_general('govt_debt_general', c, v, d, 'IMF DataMapper (GGXWDG_NGDP)')
+
+          if 'govt_debt_general' not in data:
+              data['govt_debt_general'] = {}
+          data['govt_debt_general']['source_note'] = (
+              'IMF General Government Gross Debt (% GDP, GGXWDG_NGDP). Auto-updated daily via GitHub Actions.'
+          )
+
           # ── Finalize ──────────────────────────────────
           data['last_updated'] = today
           with open('manual-data.json', 'w') as f:
