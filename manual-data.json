@@ -1,61 +1,337 @@
 {
-  "last_updated": "2026-06-17",
+  "last_updated": "2026-06-18",
   "source_note": "Auto-updated daily via GitHub Actions using FRED/OECD APIs. Only China 10Y bond yield and non-OECD core CPI (BRA, IND) require manual maintenance.",
   "policy_rates": {
-    "USA": { "value": 5.33, "date": "2024-12", "source": "Federal Reserve (FRED)" },
-    "DEU": { "value": 3.40, "date": "2024-12", "source": "ECB via FRED" },
-    "JPN": { "value": 0.25, "date": "2024-12", "source": "Bank of Japan via FRED/OECD" },
-    "FRA": { "value": 3.40, "date": "2024-12", "source": "ECB via FRED" },
-    "GBR": { "value": 5.25, "date": "2024-12", "source": "Bank of England via FRED/OECD" },
-    "ITA": { "value": 3.40, "date": "2024-12", "source": "ECB via FRED" },
-    "CAN": { "value": 5.00, "date": "2024-12", "source": "Bank of Canada via FRED/OECD" },
-    "CHN": { "value": 3.45, "date": "2024-12", "source": "PBoC via FRED/OECD" },
-    "KOR": { "value": 3.50, "date": "2024-12", "source": "Bank of Korea via FRED/OECD" },
-    "AUS": { "value": 4.35, "date": "2024-12", "source": "RBA via FRED/OECD" },
-    "BRA": { "value": 12.25, "date": "2024-12", "source": "BCB via FRED/OECD" },
-    "IND": { "value": 6.50, "date": "2024-12", "source": "RBI via FRED/OECD" }
+    "USA": {
+      "value": 3.63,
+      "date": "2026-05",
+      "source": "FRED \u2013 Federal Reserve"
+    },
+    "DEU": {
+      "value": 2.4,
+      "date": "2026-06",
+      "source": "FRED \u2013 ECB Main Refinancing Rate"
+    },
+    "JPN": {
+      "value": 0.3,
+      "date": "2023-12",
+      "source": "FRED \u2013 OECD / Bank of Japan"
+    },
+    "FRA": {
+      "value": 2.4,
+      "date": "2026-06",
+      "source": "FRED \u2013 ECB Main Refinancing Rate"
+    },
+    "GBR": {
+      "value": 5.25,
+      "date": "2024-12",
+      "source": "Bank of England via FRED/OECD"
+    },
+    "ITA": {
+      "value": 2.4,
+      "date": "2026-06",
+      "source": "FRED \u2013 ECB Main Refinancing Rate"
+    },
+    "CAN": {
+      "value": 5.25,
+      "date": "2023-12",
+      "source": "FRED \u2013 OECD / Bank of Canada"
+    },
+    "CHN": {
+      "value": 2.9,
+      "date": "2023-11",
+      "source": "FRED \u2013 OECD / PBoC"
+    },
+    "KOR": {
+      "value": 3.5,
+      "date": "2024-12",
+      "source": "Bank of Korea via FRED/OECD"
+    },
+    "AUS": {
+      "value": 4.35,
+      "date": "2024-12",
+      "source": "RBA via FRED/OECD"
+    },
+    "BRA": {
+      "value": 11.96,
+      "date": "2023-12",
+      "source": "FRED \u2013 OECD / BCB"
+    },
+    "IND": {
+      "value": 6.75,
+      "date": "2023-12",
+      "source": "FRED \u2013 OECD / RBI"
+    }
   },
   "bond_yields_10y": {
-    "USA": { "value": 4.25, "date": "2024-12", "source": "FRED (DGS10)" },
-    "DEU": { "value": 2.35, "date": "2024-12", "source": "FRED/OECD (IRLTLT01DEM156N)" },
-    "JPN": { "value": 0.95, "date": "2024-12", "source": "FRED/OECD (IRLTLT01JPM156N)" },
-    "FRA": { "value": 3.10, "date": "2024-12", "source": "FRED/OECD (IRLTLT01FRM156N)" },
-    "GBR": { "value": 4.40, "date": "2024-12", "source": "FRED/OECD (IRLTLT01GBM156N)" },
-    "ITA": { "value": 3.80, "date": "2024-12", "source": "FRED/OECD (IRLTLT01ITM156N)" },
-    "CAN": { "value": 3.65, "date": "2024-12", "source": "FRED/OECD (IRLTLT01CAM156N)" },
-    "CHN": { "value": 2.25, "date": "2024-Q4", "source": "Manual — no free API for China 10Y yield" },
-    "KOR": { "value": 3.20, "date": "2024-12", "source": "FRED/OECD (IRLTLT01KRM156N)" },
-    "AUS": { "value": 4.30, "date": "2024-12", "source": "FRED/OECD (IRLTLT01AUM156N)" },
-    "BRA": { "value": 12.80, "date": "2024-12", "source": "FRED/OECD (IRLTLT01BRM156N)" },
-    "IND": { "value": 7.10, "date": "2024-12", "source": "FRED/OECD (IRLTLT01INM156N)" }
+    "USA": {
+      "value": 4.43,
+      "date": "2026-06",
+      "source": "FRED \u2013 US Treasury"
+    },
+    "DEU": {
+      "value": 3.0465,
+      "date": "2026-05",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "JPN": {
+      "value": 2.65,
+      "date": "2026-05",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "FRA": {
+      "value": 3.7416,
+      "date": "2026-05",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "GBR": {
+      "value": 4.9416,
+      "date": "2026-05",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "ITA": {
+      "value": 3.818,
+      "date": "2026-04",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "CAN": {
+      "value": 3.5415,
+      "date": "2026-05",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "CHN": {
+      "value": 2.25,
+      "date": "2024-Q4",
+      "source": "Manual \u2014 no free API for China 10Y yield"
+    },
+    "KOR": {
+      "value": 4.075,
+      "date": "2026-05",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "AUS": {
+      "value": 4.99,
+      "date": "2026-05",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "BRA": {
+      "value": 12.8,
+      "date": "2024-12",
+      "source": "FRED/OECD (IRLTLT01BRM156N)"
+    },
+    "IND": {
+      "value": 7.1,
+      "date": "2024-12",
+      "source": "FRED/OECD (IRLTLT01INM156N)"
+    }
   },
   "core_inflation": {
-    "USA": { "value": 3.1, "date": "2024-12", "source": "FRED (CORESTICKM159SFRBATL)" },
-    "DEU": { "value": 3.3, "date": "2024-12", "source": "FRED/OECD (CPGRLE01DEM657N)" },
-    "JPN": { "value": 2.1, "date": "2024-12", "source": "FRED/OECD (CPGRLE01JPM657N)" },
-    "FRA": { "value": 2.7, "date": "2024-12", "source": "FRED/OECD (CPGRLE01FRM657N)" },
-    "GBR": { "value": 3.2, "date": "2024-12", "source": "FRED/OECD (CPGRLE01GBM657N)" },
-    "ITA": { "value": 2.5, "date": "2024-12", "source": "FRED/OECD (CPGRLE01ITM657N)" },
-    "CAN": { "value": 2.7, "date": "2024-12", "source": "FRED/OECD (CPGRLE01CAM657N)" },
-    "CHN": { "value": 0.3, "date": "2024-Q4", "source": "Manual — China not in OECD core CPI dataset" },
-    "KOR": { "value": 2.2, "date": "2024-12", "source": "FRED/OECD (CPGRLE01KRM657N)" },
-    "AUS": { "value": 3.2, "date": "2024-12", "source": "FRED/OECD (CPGRLE01AUM657N)" },
-    "BRA": { "value": 4.1, "date": "2024-Q4", "source": "Manual — Brazil not in OECD core CPI dataset" },
-    "IND": { "value": 3.6, "date": "2024-Q4", "source": "Manual — India not in OECD core CPI dataset" }
+    "USA": {
+      "value": 3.0913,
+      "date": "2026-05",
+      "source": "FRED \u2013 Atlanta Fed Sticky-Price Core CPI"
+    },
+    "DEU": {
+      "value": -0.4236,
+      "date": "2023-11",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "JPN": {
+      "value": 2.1,
+      "date": "2024-12",
+      "source": "FRED/OECD (CPGRLE01JPM657N)"
+    },
+    "FRA": {
+      "value": -0.1839,
+      "date": "2023-11",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "GBR": {
+      "value": -0.1,
+      "date": "2023-11",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "ITA": {
+      "value": -0.4057,
+      "date": "2023-11",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "CAN": {
+      "value": 0.2014,
+      "date": "2023-11",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "CHN": {
+      "value": 0.3,
+      "date": "2024-Q4",
+      "source": "Manual \u2014 China not in OECD core CPI dataset"
+    },
+    "KOR": {
+      "value": 0.0457,
+      "date": "2023-11",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "AUS": {
+      "value": 3.2,
+      "date": "2024-12",
+      "source": "FRED/OECD (CPGRLE01AUM657N)"
+    },
+    "BRA": {
+      "value": 4.1,
+      "date": "2024-Q4",
+      "source": "Manual \u2014 Brazil not in OECD core CPI dataset"
+    },
+    "IND": {
+      "value": 3.6,
+      "date": "2024-Q4",
+      "source": "Manual \u2014 India not in OECD core CPI dataset"
+    }
   },
   "govt_debt_general": {
     "source_note": "IMF General Government Gross Debt (% GDP, GGXWDG_NGDP). Auto-updated daily via GitHub Actions.",
-    "USA": { "value": 122.1, "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
-    "DEU": { "value": 62.4,  "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
-    "JPN": { "value": 254.3, "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
-    "FRA": { "value": 111.9, "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
-    "GBR": { "value": 101.0, "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
-    "ITA": { "value": 136.9, "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
-    "CAN": { "value": 106.4, "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
-    "CHN": { "value": 91.8,  "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
-    "KOR": { "value": 54.5,  "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
-    "AUS": { "value": 55.0,  "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
-    "BRA": { "value": 88.1,  "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" },
-    "IND": { "value": 83.0,  "date": "2024", "source": "IMF WEO (GGXWDG_NGDP)" }
+    "USA": {
+      "value": 122.1,
+      "date": "2024",
+      "source": "IMF WEO (GGXWDG_NGDP)"
+    },
+    "DEU": {
+      "value": 62.4,
+      "date": "2024",
+      "source": "IMF WEO (GGXWDG_NGDP)"
+    },
+    "JPN": {
+      "value": 254.3,
+      "date": "2024",
+      "source": "IMF WEO (GGXWDG_NGDP)"
+    },
+    "FRA": {
+      "value": 111.9,
+      "date": "2024",
+      "source": "IMF WEO (GGXWDG_NGDP)"
+    },
+    "GBR": {
+      "value": 101.0,
+      "date": "2024",
+      "source": "IMF WEO (GGXWDG_NGDP)"
+    },
+    "ITA": {
+      "value": 136.9,
+      "date": "2024",
+      "source": "IMF WEO (GGXWDG_NGDP)"
+    },
+    "CAN": {
+      "value": 106.4,
+      "date": "2024",
+      "source": "IMF WEO (GGXWDG_NGDP)"
+    },
+    "CHN": {
+      "value": 91.8,
+      "date": "2024",
+      "source": "IMF WEO (GGXWDG_NGDP)"
+    },
+    "KOR": {
+      "value": 54.5,
+      "date": "2024",
+      "source": "IMF WEO (GGXWDG_NGDP)"
+    },
+    "AUS": {
+      "value": 55.0,
+      "date": "2024",
+      "source": "IMF WEO (GGXWDG_NGDP)"
+    },
+    "BRA": {
+      "value": 88.1,
+      "date": "2024",
+      "source": "IMF WEO (GGXWDG_NGDP)"
+    },
+    "IND": {
+      "value": 83.0,
+      "date": "2024",
+      "source": "IMF WEO (GGXWDG_NGDP)"
+    }
+  },
+  "headline_cpi": {
+    "USA": {
+      "value": 0.6464,
+      "date": "2024-03",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "DEU": {
+      "value": 0.4234,
+      "date": "2024-03",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "FRA": {
+      "value": 0.863,
+      "date": "2024-02",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "GBR": {
+      "value": 0.6,
+      "date": "2024-02",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "ITA": {
+      "value": 0.0833,
+      "date": "2024-02",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "CAN": {
+      "value": 0.3159,
+      "date": "2024-02",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "CHN": {
+      "value": -1.0,
+      "date": "2024-03",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "KOR": {
+      "value": 0.1494,
+      "date": "2024-03",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "BRA": {
+      "value": 0.16,
+      "date": "2024-03",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "IND": {
+      "value": 0.072,
+      "date": "2024-01",
+      "source": "FRED \u2013 OECD MEI"
+    }
+  },
+  "unemployment": {
+    "USA": {
+      "value": 4.3,
+      "date": "2026-05",
+      "source": "FRED \u2013 BLS"
+    },
+    "JPN": {
+      "value": 2.5,
+      "date": "2026-04",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "CAN": {
+      "value": 6.6,
+      "date": "2026-05",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "KOR": {
+      "value": 2.8,
+      "date": "2026-04",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "AUS": {
+      "value": 4.4878,
+      "date": "2026-04",
+      "source": "FRED \u2013 OECD MEI"
+    },
+    "BRA": {
+      "value": 8.0067,
+      "date": "2015-11",
+      "source": "FRED \u2013 OECD MEI"
+    }
   }
 }
