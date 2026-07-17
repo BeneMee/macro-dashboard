@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-07-16",
+  "last_updated": "2026-07-17",
   "source_note": "Auto-updated daily via GitHub Actions using FRED/OECD APIs. Only China 10Y bond yield and non-OECD core CPI (BRA, IND) require manual maintenance.",
   "policy_rates": {
     "USA": {
@@ -65,38 +65,38 @@
   },
   "bond_yields_10y": {
     "USA": {
-      "value": 4.58,
+      "value": 4.55,
       "date": "2026-07",
       "source": "FRED \u2013 US Treasury"
     },
     "DEU": {
-      "value": 3.0465,
-      "date": "2026-05",
+      "value": 2.97,
+      "date": "2026-06",
       "source": "FRED \u2013 OECD MEI"
     },
     "JPN": {
-      "value": 2.65,
-      "date": "2026-05",
+      "value": 2.67,
+      "date": "2026-06",
       "source": "FRED \u2013 OECD MEI"
     },
     "FRA": {
-      "value": 3.7416,
-      "date": "2026-05",
+      "value": 3.68,
+      "date": "2026-06",
       "source": "FRED \u2013 OECD MEI"
     },
     "GBR": {
-      "value": 4.9416,
-      "date": "2026-05",
+      "value": 4.796,
+      "date": "2026-06",
       "source": "FRED \u2013 OECD MEI"
     },
     "ITA": {
-      "value": 3.818,
-      "date": "2026-04",
+      "value": 3.734,
+      "date": "2026-06",
       "source": "FRED \u2013 OECD MEI"
     },
     "CAN": {
-      "value": 3.5415,
-      "date": "2026-05",
+      "value": 3.42,
+      "date": "2026-06",
       "source": "FRED \u2013 OECD MEI"
     },
     "CHN": {
@@ -105,13 +105,13 @@
       "source": "Manual \u2014 no free API for China 10Y yield"
     },
     "KOR": {
-      "value": 4.075,
-      "date": "2026-05",
+      "value": 4.181,
+      "date": "2026-06",
       "source": "FRED \u2013 OECD MEI"
     },
     "AUS": {
-      "value": 4.99,
-      "date": "2026-05",
+      "value": 4.831,
+      "date": "2026-06",
       "source": "FRED \u2013 OECD MEI"
     },
     "BRA": {
@@ -310,22 +310,22 @@
     },
     "JPN": {
       "value": 2.5,
-      "date": "2026-04",
+      "date": "2026-05",
       "source": "FRED \u2013 OECD MEI"
     },
     "CAN": {
-      "value": 6.6,
-      "date": "2026-05",
+      "value": 6.5,
+      "date": "2026-06",
       "source": "FRED \u2013 OECD MEI"
     },
     "KOR": {
       "value": 2.8,
-      "date": "2026-04",
+      "date": "2026-05",
       "source": "FRED \u2013 OECD MEI"
     },
     "AUS": {
-      "value": 4.4878,
-      "date": "2026-04",
+      "value": 4.3559,
+      "date": "2026-05",
       "source": "FRED \u2013 OECD MEI"
     },
     "BRA": {
