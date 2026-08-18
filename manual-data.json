@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-08-17",
+  "last_updated": "2026-08-18",
   "source_note": "Auto-updated daily via GitHub Actions using FRED/OECD APIs. Only China 10Y bond yield and non-OECD core CPI (BRA, IND) require manual maintenance.",
   "policy_rates": {
     "USA": {
@@ -65,7 +65,7 @@
   },
   "bond_yields_10y": {
     "USA": {
-      "value": 4.63,
+      "value": 4.68,
       "date": "2026-08",
       "source": "FRED \u2013 US Treasury"
     },
@@ -310,22 +310,22 @@
     },
     "JPN": {
       "value": 2.5,
-      "date": "2026-05",
+      "date": "2026-06",
       "source": "FRED \u2013 OECD MEI"
     },
     "CAN": {
-      "value": 6.5,
-      "date": "2026-06",
+      "value": 6.4,
+      "date": "2026-07",
       "source": "FRED \u2013 OECD MEI"
     },
     "KOR": {
       "value": 2.8,
-      "date": "2026-05",
+      "date": "2026-07",
       "source": "FRED \u2013 OECD MEI"
     },
     "AUS": {
-      "value": 4.3559,
-      "date": "2026-05",
+      "value": 4.4283,
+      "date": "2026-06",
       "source": "FRED \u2013 OECD MEI"
     },
     "BRA": {
