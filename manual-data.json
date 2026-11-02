@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-11-01",
+  "last_updated": "2026-11-02",
   "source_note": "Auto-updated daily via GitHub Actions using FRED/OECD APIs. Only China 10Y bond yield and non-OECD core CPI (BRA, IND) require manual maintenance.",
   "policy_rates": {
     "USA": {
@@ -9,7 +9,7 @@
     },
     "DEU": {
       "value": 2.65,
-      "date": "2026-10",
+      "date": "2026-11",
       "source": "FRED \u2013 ECB Main Refinancing Rate"
     },
     "JPN": {
@@ -19,7 +19,7 @@
     },
     "FRA": {
       "value": 2.65,
-      "date": "2026-10",
+      "date": "2026-11",
       "source": "FRED \u2013 ECB Main Refinancing Rate"
     },
     "GBR": {
@@ -29,7 +29,7 @@
     },
     "ITA": {
       "value": 2.65,
-      "date": "2026-10",
+      "date": "2026-11",
       "source": "FRED \u2013 ECB Main Refinancing Rate"
     },
     "CAN": {
